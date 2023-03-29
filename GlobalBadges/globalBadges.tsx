@@ -72,20 +72,28 @@ const GlobalBadges = ({ user }: { user: User; }) => {
     if (!badges) return null;
     const globalBadges: JSX.Element[] = [];
 
-    Object.keys(badges).forEach(mod => {
-        if (mod.toLowerCase() === "vencord") return;
-        badges[mod].forEach(badge => {
+    for (const [mod, modBadges] of Object.entries(badges)) {
+        if (mod.toLowerCase() === "vencord") continue;
+        if (mod.toLowerCase() === "badgevault") {
+            for (const badge of modBadges) {
+                const badgeImg = badge.badge;
+                const badgeName = badge.name;
+                globalBadges.push(<Badge name={badgeName} img={badgeImg} />);
+            }
+            continue;
+        }
+        for (const badge of modBadges) {
             const badgeImg = `${API_URL}/badges/${mod}/${badge.replace(mod, "").trim().split(" ")[0]}`;
             const _ = {
                 "hunter": "Bug Hunter",
                 "early": "Early User"
             };
-            if (_[badge]) badge = _[badge];
-            const cleanName = badge.replace(mod, "").trim();
+            const cleanName = _[badge] || badge.replace(mod, "").trim();
             const badgeName = `${mod} ${cleanName.charAt(0).toUpperCase() + cleanName.slice(1)}`;
             globalBadges.push(<Badge name={badgeName} img={badgeImg} />);
-        });
-    });
+        }
+    }
+
 
     return (
         <div className="vc-global-badges" style={{ alignItems: "center", display: "flex" }}>
