@@ -18,7 +18,7 @@
 
 // Credits to https://github.com/WolfPlugs for the idea
 
-import ErrorBoundary from "@components/ErrorBoundary";
+import { addBadge, BadgePosition, ProfileBadge, removeBadge } from "@api/Badges";
 import definePlugin from "@utils/types";
 import { React, Tooltip } from "@webpack/common";
 import { User } from "discord-types/general";
@@ -37,28 +37,28 @@ const API_URL = "https://clientmodbadges-api.herokuapp.com";
 const cache = new Map<string, BadgeCache>();
 const EXPIRES = 1000 * 60 * 15;
 
-const fetchBadges = (id: string, setBadges: Function) => {
+const fetchBadges = (id: string): CustomBadges | undefined => {
     const cachedValue = cache.get(id);
     if (!cache.has(id) || (cachedValue && cachedValue.expires < Date.now())) {
         fetch(`${API_URL}/users/${id}`)
             .then(res => res.json() as Promise<CustomBadges>)
             .then(body => {
                 cache.set(id, { badges: body, expires: Date.now() + EXPIRES });
-                setBadges(body);
+                return body;
             });
     } else if (cachedValue) {
-        setBadges(cachedValue.badges);
+        return cachedValue.badges;
     }
 };
 
-const Badge = ({ name, img }: { name: string, img: string; }) => {
+const BadgeComponent = ({ name, img }: { name: string, img: string; }) => {
     return (
         <Tooltip text={name} >
             {(tooltipProps: any) => (
                 <img
                     {...tooltipProps}
                     src={img}
-                    style={{ width: "22px", height: "22px", transform: name.includes("Replugged") ? "scale(0.9)" : null }}
+                    style={{ width: "22px", height: "22px", transform: name.includes("Replugged") ? "scale(0.9)" : null, margin: "0 2px" }}
                 />
             )}
         </Tooltip>
@@ -67,7 +67,7 @@ const Badge = ({ name, img }: { name: string, img: string; }) => {
 
 const GlobalBadges = ({ user }: { user: User; }) => {
     const [badges, setBadges] = React.useState<CustomBadges>({});
-    React.useEffect(() => fetchBadges(user.id, setBadges), [user.id]);
+    React.useEffect(() => setBadges(fetchBadges(user.id) ?? {}), [user.id]);
 
     if (!badges) return null;
     const globalBadges: JSX.Element[] = [];
@@ -76,13 +76,12 @@ const GlobalBadges = ({ user }: { user: User; }) => {
         if (mod.toLowerCase() === "vencord") continue;
         if (mod.toLowerCase() === "badgevault") {
             for (const badge of modBadges) {
-                const badgeImg = badge.badge;
-                const badgeName = badge.name;
-                globalBadges.push(<Badge name={badgeName} img={badgeImg} />);
+                globalBadges.push(<BadgeComponent name={`${mod} | ${badge.name}`} img={badge.badge} />);
             }
             continue;
         }
         for (const badge of modBadges) {
+            if (typeof badge !== "string") continue;
             const badgeImg = `${API_URL}/badges/${mod}/${badge.replace(mod, "").trim().split(" ")[0]}`;
             const _ = {
                 "hunter": "Bug Hunter",
@@ -90,10 +89,9 @@ const GlobalBadges = ({ user }: { user: User; }) => {
             };
             const cleanName = _[badge] || badge.replace(mod, "").trim();
             const badgeName = `${mod} ${cleanName.charAt(0).toUpperCase() + cleanName.slice(1)}`;
-            globalBadges.push(<Badge name={badgeName} img={badgeImg} />);
+            globalBadges.push(<BadgeComponent name={badgeName} img={badgeImg} />);
         }
     }
-
 
     return (
         <div className="vc-global-badges" style={{ alignItems: "center", display: "flex" }}>
@@ -102,24 +100,18 @@ const GlobalBadges = ({ user }: { user: User; }) => {
     );
 };
 
+const Badge: ProfileBadge = {
+    component: b => <GlobalBadges {...b} />,
+    position: BadgePosition.START,
+    shouldShow: userInfo => !!Object.keys(fetchBadges(userInfo.user.id) ?? {}).length,
+    key: "GlobalBadges"
+};
+
 export default definePlugin({
     name: "GlobalBadges",
     description: "Adds global badges from other client mods",
     authors: [{ name: "HypedDomi", id: 354191516979429376n }],
 
-    patches: [
-        {
-            find: "Messages.PROFILE_USER_BADGES",
-            replacement: {
-                match: /(Messages\.PROFILE_USER_BADGES,role:"group",children:)(.+?\.key\)\}\)\))/,
-                replace: "$1[Vencord.Plugins.plugins.GlobalBadges.renderGlobalBadges(e)].concat($2)"
-            }
-        }
-    ],
-
-    renderGlobalBadges: ({ user }: { user: User; }) => (
-        <ErrorBoundary noop>
-            <GlobalBadges user={user} />
-        </ErrorBoundary>
-    )
+    start: () => addBadge(Badge),
+    stop: () => removeBadge(Badge)
 });
