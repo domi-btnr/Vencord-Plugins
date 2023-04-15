@@ -16,10 +16,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-// Credits to https://github.com/WolfPlugs for the idea
-
 import { addBadge, BadgePosition, ProfileBadge, removeBadge } from "@api/Badges";
-import definePlugin from "@utils/types";
+import { Devs } from "@utils/constants";
+import definePlugin, { OptionType } from "@utils/types";
 import { React, Tooltip } from "@webpack/common";
 import { User } from "discord-types/general";
 
@@ -76,7 +75,7 @@ const GlobalBadges = ({ user }: { user: User; }) => {
         if (mod.toLowerCase() === "vencord") continue;
         if (mod.toLowerCase() === "badgevault") {
             for (const badge of modBadges) {
-                globalBadges.push(<BadgeComponent name={`${mod} | ${badge.name}`} img={badge.badge} />);
+                globalBadges.push(<BadgeComponent name={noPrefix() ? `${badge.name}` : `${mod} | ${badge.name}`} img={badge.badge} />);
             }
             continue;
         }
@@ -107,11 +106,22 @@ const Badge: ProfileBadge = {
     key: "GlobalBadges"
 };
 
+const noPrefix = () => Vencord.Settings.plugins.GlobalBadges.noPrefix;
+
 export default definePlugin({
     name: "GlobalBadges",
     description: "Adds global badges from other client mods",
     authors: [{ name: "HypedDomi", id: 354191516979429376n }],
 
     start: () => addBadge(Badge),
-    stop: () => removeBadge(Badge)
+    stop: () => removeBadge(Badge),
+
+    options: {
+        noPrefix: {
+            type: OptionType.BOOLEAN,
+            description: "Hide Prefixes for Custom Badges",
+            default: false,
+            restartNeeded: false
+        }
+    }
 });
