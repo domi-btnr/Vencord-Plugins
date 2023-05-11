@@ -22,25 +22,27 @@ import definePlugin, { OptionType } from "@utils/types";
 import { React, Tooltip } from "@webpack/common";
 import { User } from "discord-types/general";
 
-interface CustomBadges {
-    [key: string]: string[];
-}
+type CustomBadge = string | {
+    name: string;
+    badge: string;
+    custom?: boolean;
+};
 
 interface BadgeCache {
-    badges: CustomBadges;
+    badges: { [mod: string]: CustomBadge[]; };
     expires: number;
 }
 
-const API_URL = "https://clientmodbadges-api.herokuapp.com";
+const API_URL = "https://clientmodbadges-api.herokuapp.com/";
 
 const cache = new Map<string, BadgeCache>();
 const EXPIRES = 1000 * 60 * 15;
 
-const fetchBadges = (id: string): CustomBadges | undefined => {
+const fetchBadges = (id: string): BadgeCache["badges"] | undefined => {
     const cachedValue = cache.get(id);
     if (!cache.has(id) || (cachedValue && cachedValue.expires < Date.now())) {
-        fetch(`${API_URL}/users/${id}`)
-            .then(res => res.json() as Promise<CustomBadges>)
+        fetch(`${API_URL}users/${id}`)
+            .then(res => res.json() as Promise<BadgeCache["badges"]>)
             .then(body => {
                 cache.set(id, { badges: body, expires: Date.now() + EXPIRES });
                 return body;
@@ -65,32 +67,30 @@ const BadgeComponent = ({ name, img }: { name: string, img: string; }) => {
 };
 
 const GlobalBadges = ({ user }: { user: User; }) => {
-    const [badges, setBadges] = React.useState<CustomBadges>({});
+    const [badges, setBadges] = React.useState<BadgeCache["badges"]>({});
     React.useEffect(() => setBadges(fetchBadges(user.id) ?? {}), [user.id]);
 
     if (!badges) return null;
     const globalBadges: JSX.Element[] = [];
 
-    for (const [mod, modBadges] of Object.entries(badges)) {
-        if (mod.toLowerCase() === "vencord") continue;
-        if (mod.toLowerCase() === "badgevault") {
-            for (const badge of modBadges) {
-                globalBadges.push(<BadgeComponent name={noPrefix() ? `${badge.name}` : `${mod} | ${badge.name}`} img={badge.badge} />);
-            }
-            continue;
-        }
-        for (const badge of modBadges) {
-            if (typeof badge !== "string") continue;
-            const badgeImg = `${API_URL}/badges/${mod}/${badge.replace(mod, "").trim().split(" ")[0]}`;
-            const _ = {
-                "hunter": "Bug Hunter",
-                "early": "Early User"
-            };
-            const cleanName = _[badge] || badge.replace(mod, "").trim();
-            const badgeName = `${mod} ${cleanName.charAt(0).toUpperCase() + cleanName.slice(1)}`;
-            globalBadges.push(<BadgeComponent name={badgeName} img={badgeImg} />);
-        }
-    }
+    Object.keys(badges).forEach(mod => {
+        if (mod.toLowerCase() === "vencord") return;
+        badges[mod].forEach(badge => {
+            if (typeof badge === "string") {
+                const fullNames = { "hunter": "Bug Hunter", "early": "Early User" };
+                if (fullNames[badge]) badge = fullNames[badge];
+                badge = {
+                    name: badge as string,
+                    badge: `${API_URL}badges/${mod}/${(badge as string).replace(mod, "").trim().split(" ")[0]}`
+                };
+            } else if (typeof badge === "object") badge.custom = true;
+            if (!showCustom() && badge.custom) return;
+            const cleanName = badge.name.replace(mod, "").trim();
+            const prefix = showPrefix() ? mod : "";
+            if (!badge.custom) badge.name = `${prefix} ${cleanName.charAt(0).toUpperCase() + cleanName.slice(1)}`;
+            globalBadges.push(<BadgeComponent name={badge.name} img={badge.badge} />);
+        });
+    });
 
     return (
         <div className="vc-global-badges" style={{ alignItems: "center", display: "flex" }}>
@@ -106,7 +106,8 @@ const Badge: ProfileBadge = {
     key: "GlobalBadges"
 };
 
-const noPrefix = () => Vencord.Settings.plugins.GlobalBadges.noPrefix;
+const showPrefix = () => Vencord.Settings.plugins.GlobalBadges.showPrefix;
+const showCustom = () => Vencord.Settings.plugins.GlobalBadges.showCustom;
 
 export default definePlugin({
     name: "GlobalBadges",
@@ -117,10 +118,16 @@ export default definePlugin({
     stop: () => removeBadge(Badge),
 
     options: {
-        noPrefix: {
+        showPrefix: {
             type: OptionType.BOOLEAN,
-            description: "Hide Prefixes for Custom Badges",
-            default: false,
+            description: "Shows the Mod as Prefix",
+            default: true,
+            restartNeeded: false
+        },
+        showCustom: {
+            type: OptionType.BOOLEAN,
+            description: "Show Custom Badges",
+            default: true,
             restartNeeded: false
         }
     }
