@@ -17,7 +17,6 @@
 */
 
 import { addBadge, BadgePosition, ProfileBadge, removeBadge } from "@api/Badges";
-import { Devs } from "@utils/constants";
 import definePlugin, { OptionType } from "@utils/types";
 import { React, Tooltip } from "@webpack/common";
 import { User } from "discord-types/general";
@@ -78,9 +77,8 @@ const GlobalBadges = ({ user }: { user: User; }) => {
         badges[mod].forEach(badge => {
             if (typeof badge === "string") {
                 const fullNames = { "hunter": "Bug Hunter", "early": "Early User" };
-                if (fullNames[badge]) badge = fullNames[badge];
                 badge = {
-                    name: badge as string,
+                    name: fullNames[badge as string] ? fullNames[badge as string] : badge,
                     badge: `${API_URL}badges/${mod}/${(badge as string).replace(mod, "").trim().split(" ")[0]}`
                 };
             } else if (typeof badge === "object") badge.custom = true;
