@@ -8,6 +8,5 @@ To install these plugins, you need to copy the `index.ts` file from each plugin 
 Please follow the steps below:
 
 1. Navigate to the plugin folder (e.g. [`GlobalBadges`](./GlobalBadges/))
-2. Download the `index.ts` file and copy it to your `userplugins` folder
-3. Rename the `index.ts` file to e.g. `GlobalBadges.ts`
+2. Download the `PluginName.ts` file and copy it to your `userplugins` folder
 3. Open your Terminal in the Root Folder of Vencord and run `pnpm build`
