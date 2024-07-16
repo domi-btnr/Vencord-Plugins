@@ -1,3 +1,12 @@
+## Repository Moved
+
+This repository has been moved to an organization
+
+You can find it here:
+https://github.com/Domis-Vencord-Plugins/
+
+---
+
 ### Installation Guide
 
 > [!WARNING]
